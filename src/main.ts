@@ -1,5 +1,9 @@
 import * as THREE from 'three'
 
+import { animate } from 'from-to.js'
+
+import './style.css'
+
 const canvas = document.querySelector<HTMLCanvasElement>('canvas.webgl')!
 
 // 创建场景
@@ -11,7 +15,8 @@ const geometry = new THREE.BoxGeometry(1, 1, 1)
 const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
 // 用几何体和材质创建网格
 const mesh = new THREE.Mesh(geometry, material)
-mesh.position.x = 1
+mesh.position.z = -3
+
 // 将网格添加到场景
 scene.add(mesh)
 
@@ -22,8 +27,6 @@ const sizes = {
 
 // 创建相机
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height)
-// 设置相机位置，z轴为3，否则相机和网格默认都是0会重合，看不到物体
-camera.position.z = 3
 
 // 将相机添加到场景
 scene.add(camera)
@@ -37,3 +40,16 @@ renderer.setSize(sizes.width, sizes.height)
 
 // 渲染
 renderer.render(scene, camera)
+
+animate(0, 1, {
+  type: 'spring',
+  loop: true,
+  loopDelay: 1,
+  mass: 3,
+  onUpdate(v) {
+    mesh.rotation.y = v * Math.PI * 2
+    mesh.position.x = Math.cos(v * 3)
+
+    renderer.render(scene, camera)
+  },
+})
