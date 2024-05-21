@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { animate } from 'from-to.js'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
 import './style.css'
 
@@ -12,10 +12,9 @@ const scene = new THREE.Scene()
 // 创建Box几何体
 const geometry = new THREE.BoxGeometry(1, 1, 1)
 // 创建材质
-const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+const material = new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
 // 用几何体和材质创建网格
 const mesh = new THREE.Mesh(geometry, material)
-mesh.position.z = -3
 
 // 将网格添加到场景
 scene.add(mesh)
@@ -27,29 +26,40 @@ const sizes = {
 
 // 创建相机
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height)
-
+camera.position.z = 3
 // 将相机添加到场景
 scene.add(camera)
+
+const orbitControls = new OrbitControls(camera, canvas)
+orbitControls.enableDamping = true
 
 // 渲染器
 const renderer = new THREE.WebGLRenderer({
   canvas,
 })
+
+window.addEventListener('resize', () => {
+  sizes.width = window.innerWidth
+  sizes.height = window.innerHeight
+
+  camera.aspect = sizes.width / sizes.height
+  camera.updateProjectionMatrix()
+
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+})
+
 // 设置渲染器大小
 renderer.setSize(sizes.width, sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-// 渲染
-renderer.render(scene, camera)
+const tick = () => {
+  // 渲染
+  orbitControls.update()
 
-animate(0, 1, {
-  type: 'spring',
-  loop: true,
-  loopDelay: 1,
-  mass: 3,
-  onUpdate(v) {
-    mesh.rotation.y = v * Math.PI * 2
-    mesh.position.x = Math.cos(v * 3)
+  renderer.render(scene, camera)
 
-    renderer.render(scene, camera)
-  },
-})
+  requestAnimationFrame(tick)
+}
+
+requestAnimationFrame(tick)
