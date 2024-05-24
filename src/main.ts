@@ -4,7 +4,8 @@ import * as EssentialsPlugin from '@tweakpane/plugin-essentials'
 import * as THREE from 'three'
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 
 import './style.css'
 
@@ -16,32 +17,31 @@ pane.registerPlugin(EssentialsPlugin)
 // 创建场景
 const scene = new THREE.Scene()
 
-const rgbeLoader = new RGBELoader()
-rgbeLoader.load('/textures/environmentMap/2k.hdr', (environmentMap) => {
-  environmentMap.mapping = THREE.EquirectangularReflectionMapping
-
-  scene.environment = environmentMap
-  scene.background = environmentMap
-})
-
 // 创建材质
-const material = new THREE.MeshPhysicalMaterial({
-  transparent: true,
-  roughness: 0,
+const matcapTexture = new THREE.TextureLoader().load('/textures/matcaps/1.png')
+matcapTexture.colorSpace = THREE.DisplayP3ColorSpace
+
+const material = new THREE.MeshMatcapMaterial({ matcap: matcapTexture })
+
+const fontLoader = new FontLoader()
+
+fontLoader.load('/fonts/helvetiker_regular.typeface.json', (font) => {
+  const textGeometry = new TextGeometry('zhangyu.dev', {
+    font: font,
+    size: 0.5,
+    depth: 0.1,
+    curveSegments: 5,
+    bevelEnabled: true,
+    bevelThickness: 0.03,
+    bevelSize: 0.02,
+    bevelOffset: 0,
+    bevelSegments: 1,
+  })
+  textGeometry.center()
+
+  const mesh = new THREE.Mesh(textGeometry, material)
+  scene.add(mesh)
 })
-
-const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 64, 64), material)
-sphere.position.x = -1.5
-
-const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 100, 100), material)
-
-const torus = new THREE.Mesh(
-  new THREE.TorusGeometry(0.3, 0.2, 64, 128),
-  material,
-)
-torus.position.x = 1.5
-
-scene.add(sphere, plane, torus)
 
 const sizes = {
   width: window.innerWidth,
@@ -79,74 +79,6 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
 // Tweaks
 
-pane.addBinding(material, 'metalness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'roughness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'iridescence', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'iridescenceIOR', {
-  min: 1,
-  max: 2.33,
-  step: 0.01,
-})
-
-pane.addBinding(material.iridescenceThicknessRange, '0', {
-  label: 'iridescenceThicknessRange min',
-  min: 0,
-  max: 1000,
-  step: 1,
-})
-
-pane.addBinding(material.iridescenceThicknessRange, '1', {
-  label: 'iridescenceThicknessRange max',
-  min: 0,
-  max: 1000,
-  step: 1,
-})
-
-pane.addBinding(material, 'clearcoat', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'clearcoatRoughness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'transmission', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'ior', {
-  min: 1,
-  max: 2.33,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'thickness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
 const fpsGraph = pane.addBlade({
   view: 'fpsgraph',
 
@@ -154,21 +86,9 @@ const fpsGraph = pane.addBlade({
   rows: 2,
 })
 
-const clock = new THREE.Clock()
-
 const tick = () => {
   // @ts-expect-error
   fpsGraph.begin()
-
-  const elapsedTime = clock.getElapsedTime() / 5
-
-  sphere.rotation.y = elapsedTime
-  plane.rotation.y = elapsedTime
-  torus.rotation.y = elapsedTime
-
-  sphere.rotation.x = -elapsedTime
-  plane.rotation.x = -elapsedTime
-  torus.rotation.x = -elapsedTime
 
   // 渲染
   orbitControls.update()
