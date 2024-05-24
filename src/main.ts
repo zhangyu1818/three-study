@@ -1,4 +1,5 @@
 import { Pane } from 'tweakpane'
+import * as EssentialsPlugin from '@tweakpane/plugin-essentials'
 
 import * as THREE from 'three'
 
@@ -10,6 +11,7 @@ import './style.css'
 const canvas = document.querySelector<HTMLCanvasElement>('canvas.webgl')!
 
 const pane = new Pane()
+pane.registerPlugin(EssentialsPlugin)
 
 // 创建场景
 const scene = new THREE.Scene()
@@ -22,34 +24,10 @@ rgbeLoader.load('/textures/environmentMap/2k.hdr', (environmentMap) => {
   scene.background = environmentMap
 })
 
-const textureLoader = new THREE.TextureLoader()
-const colorTexture = textureLoader.load('/textures/door/color.jpg')
-const alphaTexture = textureLoader.load('/textures/door/alpha.jpg')
-const heightTexture = textureLoader.load('/textures/door/height.jpg')
-const normalTexture = textureLoader.load('/textures/door/normal.jpg')
-const ambientOcclusionTexture = textureLoader.load(
-  '/textures/door/ambientOcclusion.jpg',
-)
-const metalnessTexture = textureLoader.load('/textures/door/metalness.jpg')
-const roughnessTexture = textureLoader.load('/textures/door/roughness.jpg')
-
-colorTexture.colorSpace = THREE.DisplayP3ColorSpace
-
 // 创建材质
-const material = new THREE.MeshStandardMaterial({
-  metalness: 1,
-  roughness: 1,
-  side: THREE.DoubleSide,
-  map: colorTexture,
-  aoMap: ambientOcclusionTexture,
-  aoMapIntensity: 1,
-  displacementMap: heightTexture,
-  displacementScale: 0.1,
-  metalnessMap: metalnessTexture,
-  roughnessMap: roughnessTexture,
-  normalMap: normalTexture,
+const material = new THREE.MeshPhysicalMaterial({
   transparent: true,
-  alphaMap: alphaTexture,
+  roughness: 0,
 })
 
 const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 64, 64), material)
@@ -113,9 +91,75 @@ pane.addBinding(material, 'roughness', {
   step: 0.01,
 })
 
+pane.addBinding(material, 'iridescence', {
+  min: 0,
+  max: 1,
+  step: 0.01,
+})
+
+pane.addBinding(material, 'iridescenceIOR', {
+  min: 1,
+  max: 2.33,
+  step: 0.01,
+})
+
+pane.addBinding(material.iridescenceThicknessRange, '0', {
+  label: 'iridescenceThicknessRange min',
+  min: 0,
+  max: 1000,
+  step: 1,
+})
+
+pane.addBinding(material.iridescenceThicknessRange, '1', {
+  label: 'iridescenceThicknessRange max',
+  min: 0,
+  max: 1000,
+  step: 1,
+})
+
+pane.addBinding(material, 'clearcoat', {
+  min: 0,
+  max: 1,
+  step: 0.01,
+})
+
+pane.addBinding(material, 'clearcoatRoughness', {
+  min: 0,
+  max: 1,
+  step: 0.01,
+})
+
+pane.addBinding(material, 'transmission', {
+  min: 0,
+  max: 1,
+  step: 0.01,
+})
+
+pane.addBinding(material, 'ior', {
+  min: 1,
+  max: 2.33,
+  step: 0.01,
+})
+
+pane.addBinding(material, 'thickness', {
+  min: 0,
+  max: 1,
+  step: 0.01,
+})
+
+const fpsGraph = pane.addBlade({
+  view: 'fpsgraph',
+
+  label: 'fpsgraph',
+  rows: 2,
+})
+
 const clock = new THREE.Clock()
 
 const tick = () => {
+  // @ts-expect-error
+  fpsGraph.begin()
+
   const elapsedTime = clock.getElapsedTime() / 5
 
   sphere.rotation.y = elapsedTime
@@ -131,6 +175,8 @@ const tick = () => {
 
   renderer.render(scene, camera)
 
+  // @ts-expect-error
+  fpsGraph.end()
   requestAnimationFrame(tick)
 }
 
