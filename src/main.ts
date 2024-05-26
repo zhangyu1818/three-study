@@ -15,44 +15,48 @@ pane.registerPlugin(EssentialsPlugin)
 // 创建场景
 const scene = new THREE.Scene()
 
-const material = new THREE.MeshStandardMaterial()
+const textureLoader = new THREE.TextureLoader()
+const particleTexture = textureLoader.load('/textures/particles/1.png')
 
-const planeMesh = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), material)
-planeMesh.rotation.x = -Math.PI / 2
-planeMesh.position.y = -1
+const geometry = new THREE.BufferGeometry()
 
-planeMesh.receiveShadow = true
+const count = 15000
+const positionsArray = new Float32Array(count * 3)
+const colorsArray = new Float32Array(count * 3)
 
-const cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), material)
+for (let i =0; i < count * 3; i++) {
+  positionsArray[i] = (Math.random() - 0.5) * 20
+  colorsArray[i] = Math.random()
+}
 
-cubeMesh.castShadow = true
+const positions = new THREE.BufferAttribute(positionsArray, 3)
+const colors = new THREE.BufferAttribute(colorsArray, 3)
+geometry.setAttribute('position', positions)
+geometry.setAttribute('color', colors)
 
-scene.add(planeMesh, cubeMesh)
 
-// 灯光
-const ambientLight = new THREE.AmbientLight(0x404040, 1)
-scene.add(ambientLight)
+const material = new THREE.PointsMaterial({
+  size:0.2,
+  transparent: true,
+  alphaMap:particleTexture,
+  // alphaTest: 0.001,
+  // depthTest: false,
+  depthWrite: false,
+  blending:THREE.AdditiveBlending
+})
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-directionalLight.position.set(1, 1, 0.5)
+material.vertexColors = true
 
-directionalLight.castShadow = true
-directionalLight.shadow.mapSize.width = 1024
-directionalLight.shadow.mapSize.height = 1024
-directionalLight.shadow.camera.near = 0.5
-directionalLight.shadow.camera.far = 4
-directionalLight.shadow.camera.top = 1
-directionalLight.shadow.camera.right = 1
-directionalLight.shadow.camera.bottom = -1
-directionalLight.shadow.camera.left = -1
+const mesh = new THREE.Points(geometry, material)
 
-scene.add(directionalLight)
+scene.add(mesh)
 
-const directionalLightCameraHelper = new THREE.CameraHelper(
-  directionalLight.shadow.camera,
+const cubeMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(),
+  new THREE.MeshBasicMaterial()
 )
 
-scene.add(directionalLightCameraHelper)
+scene.add(cubeMesh)
 
 const sizes = {
   width: window.innerWidth,
@@ -88,72 +92,6 @@ window.addEventListener('resize', () => {
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-// 阴影
-renderer.shadowMap.enabled = true
-renderer.shadowMap.type = THREE.PCFSoftShadowMap
-
-// Tweaks
-
-pane.addBinding(material, 'metalness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(material, 'roughness', {
-  min: 0,
-  max: 1,
-  step: 0.01,
-})
-
-pane.addBinding(ambientLight, 'intensity', {
-  label: 'ambientLight intensity',
-  min: 0,
-  max: 3,
-  step: 0.01,
-})
-
-pane.addBinding(directionalLight, 'intensity', {
-  label: 'directionalLight intensity',
-  min: 0,
-  max: 3,
-  step: 0.01,
-})
-
-pane.addBinding(directionalLight.position, 'x', {
-  label: 'directionalLight x',
-  min: -10,
-  max: 10,
-  step: 0.01,
-})
-
-pane.addBinding(directionalLight.position, 'y', {
-  label: 'directionalLight y',
-  min: -10,
-  max: 10,
-  step: 0.01,
-})
-
-pane.addBinding(directionalLight.position, 'z', {
-  label: 'directionalLight z',
-  min: -10,
-  max: 10,
-  step: 0.01,
-})
-
-pane.addBinding(directionalLightCameraHelper, 'visible', {
-  label: 'directionalLightCameraHelper visible',
-})
-
-pane.addBinding(renderer.shadowMap, 'type', {
-  options: {
-    BasicShadowMap: THREE.BasicShadowMap,
-    PCFShadowMap: THREE.PCFShadowMap,
-    PCFSoftShadowMap: THREE.PCFSoftShadowMap,
-    VSMShadowMap: THREE.VSMShadowMap,
-  },
-})
-
 const fpsGraph = pane.addBlade({
   view: 'fpsgraph',
 
@@ -161,17 +99,11 @@ const fpsGraph = pane.addBlade({
   rows: 2,
 })
 
-const clock = new THREE.Clock()
 
 const tick = () => {
   // @ts-expect-error
   fpsGraph.begin()
 
-  const elapsedTime = clock.getElapsedTime()
-
-  cubeMesh.rotation.y = elapsedTime
-
-  cubeMesh.rotation.x = -elapsedTime / 5
 
   // 渲染
   orbitControls.update()
