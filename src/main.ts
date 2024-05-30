@@ -1,12 +1,12 @@
 import { Pane } from 'tweakpane'
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials'
 
-import debounce from 'lodash.debounce'
-
 import * as THREE from 'three'
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { Timer } from 'three/addons/misc/Timer.js'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 
 import './style.css'
 
@@ -15,120 +15,69 @@ const canvas = document.querySelector<HTMLCanvasElement>('canvas.webgl')!
 const pane = new Pane()
 pane.registerPlugin(EssentialsPlugin)
 
-// 创建场景
-const scene = new THREE.Scene()
-
-let points: THREE.Points
-let geometry: THREE.BufferGeometry
-let material: THREE.PointsMaterial
-
-const params = {
-  count: 10000,
-  size: 0.01,
-  radius: 5,
-  randomness: 0.2,
-  randomnessPower: 3,
-  spin: 1,
-  branches: 3,
-  insideColor: 0xff6030,
-  outsideColor: 0x1b3984,
-  speed: 0.02,
-}
-
-const generatePoints = () => {
-  geometry?.dispose()
-  material?.dispose()
-  if (points) {
-    scene.remove(points)
-  }
-
-  const {
-    count,
-    size,
-    radius,
-    branches,
-    spin,
-    randomness,
-    randomnessPower,
-    insideColor,
-    outsideColor,
-  } = params
-
-  const positions = new Float32Array(count * 3)
-  const colors = new Float32Array(count * 3)
-
-  for (let i = 0; i < count; i++) {
-    const i3 = i * 3
-
-    const randomRadius = Math.random() * radius
-    const spinAngle = randomRadius * spin
-    const branchAngle = ((i % branches) / branches) * Math.PI * 2
-
-    const randomX =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      randomRadius
-    const randomY =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      randomRadius
-    const randomZ =
-      Math.pow(Math.random(), randomnessPower) *
-      (Math.random() < 0.5 ? 1 : -1) *
-      randomness *
-      randomRadius
-
-    positions[i3] = Math.cos(branchAngle + spinAngle) * randomRadius + randomX
-    positions[i3 + 1] = randomY
-    positions[i3 + 2] =
-      Math.sin(branchAngle + spinAngle) * randomRadius + randomZ
-
-    const colorInside = new THREE.Color(insideColor)
-    const colorOutside = new THREE.Color(outsideColor)
-
-    const mixedColor = colorInside.clone()
-    mixedColor.lerp(colorOutside, randomRadius / radius)
-
-    colors[i3] = mixedColor.r
-    colors[i3 + 1] = mixedColor.g
-    colors[i3 + 2] = mixedColor.b
-  }
-
-  geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-
-  material = new THREE.PointsMaterial({
-    size,
-    sizeAttenuation: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexColors: true,
-  })
-
-  points = new THREE.Points(geometry, material)
-  points.rotation.x = Math.PI / 6
-
-  scene.add(points)
-}
-
-generatePoints()
-
 const sizes = {
   width: window.innerWidth,
   height: window.innerHeight,
 }
 
+// 创建场景
+const scene = new THREE.Scene()
+
+let mixer: THREE.AnimationMixer | null = null
+
+// 加载模型
+const gltfLoader = new GLTFLoader()
+const dracLoader = new DRACOLoader()
+
+dracLoader.setDecoderPath('node_modules/three/examples/jsm/libs/draco/')
+
+gltfLoader.setDRACOLoader(dracLoader)
+gltfLoader.load('/models/Duck/glTF/Duck.gltf', (gltf) => {
+  scene.add(gltf.scene.children[0])
+})
+
+gltfLoader.load('/models/Duck/glTF-Draco/Duck.gltf', (gltf) => {
+  gltf.scene.children[0].position.x = 2
+  scene.add(gltf.scene.children[0])
+})
+
+gltfLoader.load('/models/Fox/glTF/Fox.gltf', (gltf) => {
+  const fox = gltf.scene.children[0]
+  fox.scale.set(0.02, 0.02, 0.02)
+  fox.position.x = -2
+  scene.add(fox)
+
+  mixer = new THREE.AnimationMixer(fox)
+  const action = mixer.clipAction(gltf.animations[0])
+  action.play()
+})
+
+const planeMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 10),
+  new THREE.MeshStandardMaterial({
+    color: 0x777777,
+    side: THREE.DoubleSide,
+  }),
+)
+planeMesh.rotation.x = Math.PI / 2
+scene.add(planeMesh)
+
 // 创建相机
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height)
-camera.position.z = 8
+camera.position.set(5, 5, 5)
 // 将相机添加到场景
 scene.add(camera)
 
 const orbitControls = new OrbitControls(camera, canvas)
 orbitControls.enableDamping = true
+
+// 灯光
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+scene.add(ambientLight)
+
+const spotLight = new THREE.SpotLight(0x78ff00, 8, 8, Math.PI * 0.2, 0.5, 1)
+spotLight.position.set(0, 3, 2)
+scene.add(spotLight)
 
 // 渲染器
 const renderer = new THREE.WebGLRenderer({
@@ -150,86 +99,10 @@ window.addEventListener('resize', () => {
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-const debounceGeneratePoints = debounce(generatePoints, 100)
-
-pane
-  .addBinding(params, 'count', {
-    min: 10000,
-    max: 10000000,
-    step: 10000,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'size', {
-    min: 0.001,
-    max: 0.01,
-    step: 0.0001,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'radius', {
-    min: 0.1,
-    max: 10,
-    step: 0.1,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'randomness', {
-    min: 0,
-    max: 2,
-    step: 0.01,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'randomnessPower', {
-    min: 1,
-    max: 10,
-    step: 1,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'spin', {
-    min: -5,
-    max: 5,
-    step: 0.01,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'branches', {
-    min: 1,
-    max: 20,
-    step: 1,
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'insideColor', {
-    view: 'color',
-  })
-  .on('change', debounceGeneratePoints)
-
-pane
-  .addBinding(params, 'outsideColor', {
-    view: 'color',
-  })
-  .on('change', debounceGeneratePoints)
-
-pane.addBinding(params, 'speed', {
-  min: 0.01,
-  max: 1,
-  step: 0.01,
-})
-
 const fpsGraph = pane.addBlade({
   view: 'fpsgraph',
 
-  label: 'fpsgraph',
+  label: 'FPS',
   rows: 2,
 })
 
@@ -245,10 +118,9 @@ const tick = (timestamp: number) => {
   requestAnimationFrame(tick)
   timer.update(timestamp)
 
-  const elapsedTime = timer.getElapsed()
-
-  if (points) {
-    points.rotation.y = -elapsedTime * params.speed
+  const delta = timer.getDelta()
+  if (mixer) {
+    mixer.update(delta)
   }
 
   renderer.render(scene, camera)
