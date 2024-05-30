@@ -5,8 +5,6 @@ import * as THREE from 'three'
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { Timer } from 'three/addons/misc/Timer.js'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 
 import './style.css'
 
@@ -23,48 +21,29 @@ const sizes = {
 // 创建场景
 const scene = new THREE.Scene()
 
-let mixer: THREE.AnimationMixer | null = null
-
-// 加载模型
-const gltfLoader = new GLTFLoader()
-const dracLoader = new DRACOLoader()
-
-dracLoader.setDecoderPath('node_modules/three/examples/jsm/libs/draco/')
-
-gltfLoader.setDRACOLoader(dracLoader)
-gltfLoader.load('/models/Duck/glTF/Duck.gltf', (gltf) => {
-  scene.add(gltf.scene.children[0])
-})
-
-gltfLoader.load('/models/Duck/glTF-Draco/Duck.gltf', (gltf) => {
-  gltf.scene.children[0].position.x = 2
-  scene.add(gltf.scene.children[0])
-})
-
-gltfLoader.load('/models/Fox/glTF/Fox.gltf', (gltf) => {
-  const fox = gltf.scene.children[0]
-  fox.scale.set(0.02, 0.02, 0.02)
-  fox.position.x = -2
-  scene.add(fox)
-
-  mixer = new THREE.AnimationMixer(fox)
-  const action = mixer.clipAction(gltf.animations[0])
-  action.play()
-})
-
-const planeMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(10, 10),
-  new THREE.MeshStandardMaterial({
-    color: 0x777777,
-    side: THREE.DoubleSide,
-  }),
+const sphereMesh1 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 32, 32),
+  new THREE.MeshBasicMaterial(),
 )
-planeMesh.rotation.x = Math.PI / 2
-scene.add(planeMesh)
+sphereMesh1.position.x = -2
+scene.add(sphereMesh1)
+
+const sphereMesh2 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 32, 32),
+  new THREE.MeshBasicMaterial(),
+)
+scene.add(sphereMesh2)
+
+const sphereMesh3 = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 32, 32),
+  new THREE.MeshBasicMaterial(),
+)
+sphereMesh3.position.x = 2
+scene.add(sphereMesh3)
 
 // 创建相机
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height)
-camera.position.set(5, 5, 5)
+camera.position.z = -5
 // 将相机添加到场景
 scene.add(camera)
 
@@ -72,16 +51,19 @@ const orbitControls = new OrbitControls(camera, canvas)
 orbitControls.enableDamping = true
 
 // 灯光
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+const ambientLight = new THREE.AmbientLight(0xffffff, 2)
 scene.add(ambientLight)
-
-const spotLight = new THREE.SpotLight(0x78ff00, 8, 8, Math.PI * 0.2, 0.5, 1)
-spotLight.position.set(0, 3, 2)
-scene.add(spotLight)
 
 // 渲染器
 const renderer = new THREE.WebGLRenderer({
   canvas,
+})
+
+window.addEventListener('mousemove', (event) => {
+  mouse.x = (event.clientX / sizes.width - 0.5) * 2
+  mouse.y = -(event.clientY / sizes.height - 0.5) * 2
+
+  raycaster.setFromCamera(mouse, camera)
 })
 
 window.addEventListener('resize', () => {
@@ -108,6 +90,11 @@ const fpsGraph = pane.addBlade({
 
 const timer = new Timer()
 
+const raycaster = new THREE.Raycaster()
+
+const mouse = new THREE.Vector2()
+let currentIntersect: THREE.Intersection | null = null
+
 const tick = (timestamp: number) => {
   // @ts-expect-error
   fpsGraph.begin()
@@ -115,13 +102,34 @@ const tick = (timestamp: number) => {
   // 渲染
   orbitControls.update()
 
+  const elapsed = timer.getElapsed()
+
+  sphereMesh1.position.y = Math.sin(elapsed * 0.3) * 1.5
+  sphereMesh2.position.y = Math.sin(elapsed * 0.8) * 1.5
+  sphereMesh3.position.y = Math.sin(elapsed * 1.4) * 1.5
+
+  const intersects = raycaster.intersectObjects([
+    sphereMesh1,
+    sphereMesh2,
+    sphereMesh3,
+  ])
+
+  if (intersects.length > 0) {
+    if (currentIntersect === null) {
+      intersects[0].object.scale.set(1.2, 1.2, 1.2)
+    }
+
+    currentIntersect = intersects[0]
+  } else {
+    if (currentIntersect) {
+      currentIntersect.object.scale.set(1, 1, 1)
+    }
+
+    currentIntersect = null
+  }
+
   requestAnimationFrame(tick)
   timer.update(timestamp)
-
-  const delta = timer.getDelta()
-  if (mixer) {
-    mixer.update(delta)
-  }
 
   renderer.render(scene, camera)
 
